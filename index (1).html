@@ -1,0 +1,1730 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Agafonov Coach Chess</title>
+    <meta name="description" content="Agafonov Coach Chess" />
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="text/babel">
+const { useEffect, useMemo, useRef, useState } = React;
+
+const ADMIN_PASSWORD = '28122010As';
+
+const STORAGE_KEYS = {
+  services: 'agafonov_services_v2',
+  orders: 'agafonov_orders_v2',
+  reviews: 'agafonov_reviews_v2',
+  payouts: 'agafonov_payouts_v2',
+  admin: 'agafonov_admin_v2',
+  appState: 'agafonov_app_state_v3'
+};
+
+const SERVICES_SEED = [
+  {
+    id: 's1',
+    slug: 'rating-boost',
+    title: 'Поднятие рейтинга',
+    shortDesc: 'Режимы любые, диапазоны рейтинга на выбор.',
+    description:
+      'Услуга повышения рейтинга в разных диапазонах. Стоимость вариантов можно редактировать в панели администратора.',
+    badge: 'Популярно',
+    category: 'Рейтинг',
+    basePrice: 120,
+    heroAccent: 'rgba(185,146,82,0.16)',
+    options: [
+      { id: 'o1', label: '1950 — 2150', price: 900, enabled: true },
+      { id: 'o2', label: '1650 — 1950', price: 700, enabled: true },
+      { id: 'o3', label: '1350 — 1650', price: 550, enabled: true },
+      { id: 'o4', label: '1050 — 1350', price: 400, enabled: true },
+      { id: 'o5', label: '700 — 1050', price: 280, enabled: true },
+      { id: 'o6', label: '401 — 700', price: 180, enabled: true },
+      { id: 'o7', label: '100 — 400', price: 120, enabled: true }
+    ]
+  },
+  {
+    id: 's2',
+    slug: 'game-analysis',
+    title: 'Разбор вашей партии',
+    shortDesc: 'Профессиональный анализ ошибок и идей.',
+    description:
+      'Детальный разбор сыгранной партии: ошибки, ключевые позиции, дебют, миттельшпиль и эндшпиль.',
+    badge: 'Быстро',
+    category: 'Разбор',
+    basePrice: 40,
+    heroAccent: 'rgba(49,70,59,0.14)',
+    options: [{ id: 'o8', label: 'Один разбор партии', price: 40, enabled: true }]
+  },
+  {
+    id: 's3',
+    slug: 'play-session',
+    title: 'Игра со мной',
+    shortDesc: 'Онлайн-сессия 1–3 часа.',
+    description:
+      'Практическая игра онлайн с последующим обсуждением идей, типовых ошибок и плана роста.',
+    badge: 'Онлайн',
+    category: 'Практика',
+    basePrice: 130,
+    heroAccent: 'rgba(107,59,66,0.12)',
+    options: [
+      { id: 'o9', label: '1 час', price: 130, enabled: true },
+      { id: 'o10', label: '2 часа', price: 260, enabled: true },
+      { id: 'o11', label: '3 часа', price: 390, enabled: true }
+    ]
+  },
+  {
+    id: 's4',
+    slug: 'tactics-training',
+    title: 'Обучение тактическим приёмам',
+    shortDesc: 'Полное обучение или отдельный элемент.',
+    description:
+      'Онлайн-обучение тактике с выбором полной программы или отдельного элемента. Доступны занятия на 1–3 часа.',
+    badge: 'Обучение',
+    category: 'Обучение',
+    basePrice: 1150,
+    heroAccent: 'rgba(185,146,82,0.18)',
+    options: [
+      { id: 'o12', label: 'Полное обучение', price: 1150, enabled: true },
+      { id: 'o13', label: 'Вилка', price: 100, enabled: true },
+      { id: 'o14', label: 'Связка', price: 110, enabled: true },
+      { id: 'o15', label: 'Завлечение', price: 110, enabled: true },
+      { id: 'o16', label: 'Сквозное нападение', price: 120, enabled: true },
+      { id: 'o17', label: 'Вскрытое нападение', price: 120, enabled: true },
+      { id: 'o18', label: 'Двойной шах', price: 120, enabled: true },
+      { id: 'o19', label: 'Уничтожение защиты', price: 130, enabled: true },
+      { id: 'o20', label: 'Отвлечение', price: 110, enabled: true },
+      { id: 'o21', label: 'Перекрытие', price: 110, enabled: true },
+      { id: 'o22', label: 'Упрощение', price: 100, enabled: true },
+      { id: 'o23', label: 'Ловушка для фигуры', price: 120, enabled: true },
+      { id: 'o24', label: 'Мат по последней горизонтали', price: 130, enabled: true }
+    ]
+  },
+  {
+    id: 's5',
+    slug: 'tournaments',
+    title: 'Победа на турнирах',
+    shortDesc: 'Russian Chess Tour и турниры по рейтингу.',
+    description:
+      'Победа на турнирах и участие в рейтинговых турнирах. Для нестандартных турниров стоимость согласуется отдельно.',
+    badge: 'Турниры',
+    category: 'Турниры',
+    basePrice: 400,
+    heroAccent: 'rgba(49,70,59,0.16)',
+    options: [
+      { id: 'o25', label: 'Russian Chess Tour 1500+', price: 400, enabled: true },
+      { id: 'o26', label: 'Russian Chess Tour 1800+', price: 800, enabled: true },
+      { id: 'o27', label: 'Russian Chess Tour 2000+', price: 1100, enabled: true },
+      { id: 'o28', label: 'Турниры 1000–2000 (цена по договорённости)', price: 1000, enabled: true }
+    ]
+  },
+  {
+    id: 's6',
+    slug: 'leagues',
+    title: 'Подниму вас в любую лигу',
+    shortDesc: 'Цена за 1 лигу. Более одной — до 2–3 недель.',
+    description:
+      'Услуга подъёма в лигу. Лига Легенда недоступна. Остальные лиги доступны для заказа.',
+    badge: 'Лиги',
+    category: 'Лиги',
+    basePrice: 60,
+    heroAccent: 'rgba(107,59,66,0.14)',
+    options: [
+      { id: 'o29', label: 'Бронза', price: 60, enabled: true },
+      { id: 'o30', label: 'Серебро', price: 140, enabled: true },
+      { id: 'o31', label: 'Кристалл', price: 300, enabled: true },
+      { id: 'o32', label: 'Элита', price: 500, enabled: true },
+      { id: 'o33', label: 'Чемпион', price: 800, enabled: true },
+      { id: 'o34', label: 'Лига Легенда — недоступно', price: 0, enabled: false }
+    ]
+  }
+];
+
+const INITIAL_ORDERS = [
+  {
+    id: 'ord-1001',
+    serviceId: 's2',
+    serviceTitle: 'Разбор вашей партии',
+    optionLabel: 'Один разбор партии',
+    customerName: 'Игрок_128',
+    amount: 40,
+    note: '',
+    status: 'REVIEW_LEFT',
+    createdAt: '2026-03-30T10:00:00.000Z'
+  },
+  {
+    id: 'ord-1002',
+    serviceId: 's3',
+    serviceTitle: 'Игра со мной',
+    optionLabel: '2 часа',
+    customerName: 'KnightRush',
+    amount: 260,
+    note: 'Хочу тренировочную сессию по блицу и разбор по ходу.',
+    status: 'DONE_BY_ADMIN',
+    createdAt: '2026-03-30T12:15:00.000Z'
+  },
+  {
+    id: 'ord-1003',
+    serviceId: 's1',
+    serviceTitle: 'Поднятие рейтинга',
+    optionLabel: '1350 — 1650',
+    customerName: 'RookFlow',
+    amount: 550,
+    note: '',
+    status: 'IN_PROGRESS',
+    createdAt: '2026-03-30T13:25:00.000Z'
+  }
+];
+
+const INITIAL_REVIEWS = [
+  {
+    id: 'rev-1',
+    orderId: 'ord-1001',
+    customerName: 'Игрок_128',
+    rating: 5,
+    text: 'Очень понятный и полезный разбор. Всё по делу и без воды.',
+    adminReply: 'Спасибо за отзыв. Рад, что разбор помог.',
+    createdAt: '2026-03-30T11:00:00.000Z',
+    serviceTitle: 'Разбор вашей партии',
+    optionLabel: 'Один разбор партии',
+    amount: 40,
+    purchasedAt: '2026-03-30T10:00:00.000Z'
+  }
+];
+
+const INITIAL_PAYOUTS = [
+  {
+    id: 'pay-1',
+    amount: 300,
+    cardNumber: '**** **** **** 1234',
+    createdAt: '2026-03-30T15:00:00.000Z'
+  }
+];
+
+const FALLBACK_APP_STATE = {
+  services: SERVICES_SEED,
+  orders: INITIAL_ORDERS,
+  reviews: INITIAL_REVIEWS,
+  payouts: INITIAL_PAYOUTS,
+  adminAuthed: false
+};
+
+function canUseStorage() {
+  if (typeof window === 'undefined') return false;
+  try {
+    const testKey = '__agafonov_storage_test__';
+    window.localStorage.setItem(testKey, '1');
+    window.localStorage.removeItem(testKey);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function safeRead(key, fallback) {
+  if (!canUseStorage()) return fallback;
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return fallback;
+    const parsed = JSON.parse(raw);
+    return parsed ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function safeWrite(key, value) {
+  if (!canUseStorage()) return;
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch {}
+}
+
+function normalizeState(candidate) {
+  const next = candidate && typeof candidate === 'object' ? candidate : {};
+
+  return {
+    services: Array.isArray(next.services) ? next.services : SERVICES_SEED,
+    orders: Array.isArray(next.orders) ? next.orders : INITIAL_ORDERS,
+    reviews: Array.isArray(next.reviews) ? next.reviews : INITIAL_REVIEWS,
+    payouts: Array.isArray(next.payouts) ? next.payouts : INITIAL_PAYOUTS,
+    adminAuthed: Boolean(next.adminAuthed)
+  };
+}
+
+function readPersistedAppState() {
+  if (!canUseStorage()) return FALLBACK_APP_STATE;
+
+  const combined = safeRead(STORAGE_KEYS.appState, null);
+  if (combined && typeof combined === 'object') {
+    return normalizeState(combined);
+  }
+
+  return normalizeState({
+    services: safeRead(STORAGE_KEYS.services, SERVICES_SEED),
+    orders: safeRead(STORAGE_KEYS.orders, INITIAL_ORDERS),
+    reviews: safeRead(STORAGE_KEYS.reviews, INITIAL_REVIEWS),
+    payouts: safeRead(STORAGE_KEYS.payouts, INITIAL_PAYOUTS),
+    adminAuthed: safeRead(STORAGE_KEYS.admin, false)
+  });
+}
+
+function writePersistedAppState(state) {
+  if (!canUseStorage()) return;
+
+  const normalized = normalizeState(state);
+
+  safeWrite(STORAGE_KEYS.appState, normalized);
+  safeWrite(STORAGE_KEYS.services, normalized.services);
+  safeWrite(STORAGE_KEYS.orders, normalized.orders);
+  safeWrite(STORAGE_KEYS.reviews, normalized.reviews);
+  safeWrite(STORAGE_KEYS.payouts, normalized.payouts);
+  safeWrite(STORAGE_KEYS.admin, normalized.adminAuthed);
+}
+
+function formatPrice(price) {
+  return `${Number(price || 0).toLocaleString('ru-RU')} ₽`;
+}
+
+function formatDate(value) {
+  return new Date(value).toLocaleDateString('ru-RU');
+}
+
+function formatDateTime(value) {
+  return new Date(value).toLocaleString('ru-RU');
+}
+
+function randomId(prefix) {
+  return `${prefix}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function minEnabledPrice(service) {
+  const enabled = service.options.filter((item) => item.enabled !== false);
+  if (!enabled.length) return service.basePrice;
+  return Math.min(...enabled.map((item) => item.price));
+}
+
+function statusLabel(status) {
+  const labels = {
+    DEMO_PAID: 'Оплачено',
+    PENDING_FULFILLMENT: 'Ожидает выполнения',
+    IN_PROGRESS: 'Выполняется',
+    DONE_BY_ADMIN: 'Выполнено администратором',
+    CONFIRMED_BY_CLIENT: 'Подтверждено клиентом',
+    REVIEW_LEFT: 'Отзыв оставлен'
+  };
+  return labels[status] || status;
+}
+
+function orderTimeline(status) {
+  const steps = [
+    'DEMO_PAID',
+    'PENDING_FULFILLMENT',
+    'IN_PROGRESS',
+    'DONE_BY_ADMIN',
+    'CONFIRMED_BY_CLIENT',
+    'REVIEW_LEFT'
+  ];
+  const index = Math.max(steps.indexOf(status), 0);
+  return steps.map((step, i) => ({ key: step, done: i <= index }));
+}
+
+function cardStyle() {
+  return {
+    background: 'rgba(255,255,255,0.96)',
+    border: '1px solid rgba(185,146,82,0.14)',
+    borderRadius: 28,
+    boxShadow: '0 18px 60px rgba(0,0,0,0.08)'
+  };
+}
+
+function sectionTitleStyle() {
+  return {
+    fontSize: 30,
+    lineHeight: 1.15,
+    margin: 0,
+    fontWeight: 900,
+    letterSpacing: '-0.02em'
+  };
+}
+
+function buttonStyle(primary = true) {
+  return {
+    border: 'none',
+    borderRadius: 16,
+    padding: '12px 18px',
+    fontWeight: 700,
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+    background: primary ? '#2e2f33' : '#ffffff',
+    color: primary ? '#ffffff' : '#2e2f33',
+    boxShadow: primary ? '0 10px 24px rgba(46,47,51,0.16)' : 'inset 0 0 0 1px rgba(0,0,0,0.1)'
+  };
+}
+
+function inputStyle() {
+  return {
+    width: '100%',
+    borderRadius: 16,
+    border: '1px solid rgba(0,0,0,0.1)',
+    padding: '12px 14px',
+    fontSize: 14,
+    background: '#fff'
+  };
+}
+
+function badgeStyle() {
+  return {
+    display: 'inline-flex',
+    borderRadius: 999,
+    padding: '6px 10px',
+    background: 'rgba(185,146,82,0.12)',
+    color: '#b99252',
+    fontSize: 12,
+    fontWeight: 700,
+    border: '1px solid rgba(185,146,82,0.25)'
+  };
+}
+
+function subtleBoxStyle() {
+  return {
+    background: 'rgba(235,228,214,0.5)',
+    borderRadius: 18,
+    padding: 14
+  };
+}
+
+function EmptyState({ text }) {
+  return (
+    <div style={{ ...cardStyle(), padding: 24 }}>
+      <div style={{ color: 'rgba(46,47,51,0.72)' }}>{text}</div>
+    </div>
+  );
+}
+
+function InfoBox({ label, value, style }) {
+  return (
+    <div style={{ ...subtleBoxStyle(), ...style }}>
+      <div style={{ fontSize: 13, color: 'rgba(46,47,51,0.58)' }}>{label}</div>
+      <div style={{ marginTop: 6, fontWeight: 700 }}>{value}</div>
+    </div>
+  );
+}
+
+function ServiceCard({ service, onOpen }) {
+  return (
+    <div
+      style={{
+        ...cardStyle(),
+        padding: 22,
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        minHeight: 300,
+        background: `linear-gradient(180deg, rgba(255,255,255,0.98), ${service.heroAccent})`
+      }}
+    >
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'start' }}>
+          <div>
+            <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.2 }}>{service.title}</div>
+            <div style={{ fontSize: 14, lineHeight: 1.7, marginTop: 10, color: 'rgba(46,47,51,0.72)' }}>
+              {service.shortDesc}
+            </div>
+          </div>
+          {service.badge ? <span style={badgeStyle()}>{service.badge}</span> : null}
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 16 }}>
+          <span
+            style={{
+              ...badgeStyle(),
+              background: 'rgba(49,70,59,0.08)',
+              color: '#31463b',
+              borderColor: 'rgba(49,70,59,0.18)'
+            }}
+          >
+            {service.category}
+          </span>
+        </div>
+
+        <div style={{ ...subtleBoxStyle(), marginTop: 18 }}>
+          От <strong>{formatPrice(minEnabledPrice(service))}</strong>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
+        <button onClick={() => onOpen(service.id)} style={{ ...buttonStyle(true), width: '100%' }}>
+          Выбрать
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ReviewCard({ review }) {
+  return (
+    <div
+      style={{
+        ...cardStyle(),
+        padding: 24,
+        display: 'grid',
+        gap: 14,
+        background: 'linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,244,236,0.98))'
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'start' }}>
+        <div>
+          <div style={{ fontWeight: 800, fontSize: 18 }}>{review.customerName}</div>
+          <div style={{ fontSize: 13, color: 'rgba(46,47,51,0.58)', marginTop: 6 }}>
+            Отзыв от {formatDate(review.createdAt)}
+          </div>
+        </div>
+        <span style={badgeStyle()}>{review.rating} ★</span>
+      </div>
+
+      <div style={{ ...subtleBoxStyle(), display: 'grid', gap: 8 }}>
+        <div style={{ fontSize: 14, fontWeight: 700 }}>{review.serviceTitle}</div>
+        <div style={{ fontSize: 13, color: 'rgba(46,47,51,0.7)' }}>Вариант: {review.optionLabel}</div>
+        <div style={{ fontSize: 13, color: 'rgba(46,47,51,0.7)' }}>Сумма заказа: {formatPrice(review.amount)}</div>
+        <div style={{ fontSize: 13, color: 'rgba(46,47,51,0.7)' }}>Куплено: {formatDate(review.purchasedAt)}</div>
+      </div>
+
+      <div style={{ color: 'rgba(46,47,51,0.82)', lineHeight: 1.8, fontSize: 14 }}>{review.text}</div>
+
+      {review.adminReply ? (
+        <div
+          style={{
+            borderRadius: 18,
+            padding: 14,
+            background: 'rgba(185,146,82,0.06)',
+            border: '1px solid rgba(185,146,82,0.2)'
+          }}
+        >
+          <div
+            style={{
+              fontSize: 11,
+              color: '#b99252',
+              fontWeight: 800,
+              textTransform: 'uppercase',
+              letterSpacing: 2
+            }}
+          >
+            Ответ Agafonov Chess
+          </div>
+          <div style={{ marginTop: 8, fontSize: 14, color: 'rgba(46,47,51,0.8)' }}>{review.adminReply}</div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function StatCard({ label, value }) {
+  return (
+    <div style={{ ...cardStyle(), padding: 18 }}>
+      <div style={{ fontSize: 13, color: 'rgba(46,47,51,0.58)' }}>{label}</div>
+      <div style={{ marginTop: 10, fontSize: 28, fontWeight: 900 }}>{value}</div>
+    </div>
+  );
+}
+
+function StatTile({ label, value }) {
+  return (
+    <div style={{ ...subtleBoxStyle() }}>
+      <div style={{ fontSize: 12, color: 'rgba(46,47,51,0.58)' }}>{label}</div>
+      <div style={{ marginTop: 8, fontSize: 22, fontWeight: 800 }}>{value}</div>
+    </div>
+  );
+}
+
+function AdminReviewItem({ review, onReply, onDelete }) {
+  const [replyDraft, setReplyDraft] = useState(review.adminReply || '');
+
+  return (
+    <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'start' }}>
+        <div>
+          <div style={{ fontWeight: 800 }}>{review.customerName}</div>
+          <div style={{ fontSize: 13, color: 'rgba(46,47,51,0.56)', marginTop: 4 }}>
+            {review.serviceTitle} · {review.optionLabel} · {formatPrice(review.amount)}
+          </div>
+        </div>
+        <span style={badgeStyle()}>{review.rating} ★</span>
+      </div>
+
+      <div style={{ marginTop: 10, fontSize: 14, color: 'rgba(46,47,51,0.78)', lineHeight: 1.7 }}>{review.text}</div>
+
+      <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
+        <input
+          value={replyDraft}
+          onChange={(e) => setReplyDraft(e.target.value)}
+          placeholder="Ответ администратора"
+          style={inputStyle()}
+        />
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button onClick={() => onReply(review.id, replyDraft)} style={buttonStyle(true)}>
+            Сохранить ответ
+          </button>
+          <button onClick={() => onDelete(review.id)} style={{ ...buttonStyle(true), background: '#6b3b42' }}>
+            Удалить отзыв
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const [hydrated, setHydrated] = useState(false);
+
+  const [view, setView] = useState('home');
+  const [selectedServiceId, setSelectedServiceId] = useState(null);
+  const [selectedOrderId, setSelectedOrderId] = useState(null);
+  const [adminAuthed, setAdminAuthed] = useState(false);
+  const [adminPasswordInput, setAdminPasswordInput] = useState('');
+  const [services, setServices] = useState(SERVICES_SEED);
+  const [orders, setOrders] = useState(INITIAL_ORDERS);
+  const [reviews, setReviews] = useState(INITIAL_REVIEWS);
+  const [payouts, setPayouts] = useState(INITIAL_PAYOUTS);
+  const [draftCheckout, setDraftCheckout] = useState(null);
+  const [reviewFilter, setReviewFilter] = useState('all');
+  const [profileFilter, setProfileFilter] = useState('all');
+  const lastSavedSnapshotRef = useRef('');
+
+  useEffect(() => {
+    const persistedState = readPersistedAppState();
+
+    setServices(persistedState.services);
+    setOrders(persistedState.orders);
+    setReviews(persistedState.reviews);
+    setPayouts(persistedState.payouts);
+    setAdminAuthed(persistedState.adminAuthed);
+
+    writePersistedAppState(persistedState);
+    lastSavedSnapshotRef.current = JSON.stringify(persistedState);
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+
+    const snapshot = {
+      services,
+      orders,
+      reviews,
+      payouts,
+      adminAuthed
+    };
+
+    const nextSerialized = JSON.stringify(snapshot);
+    if (nextSerialized === lastSavedSnapshotRef.current) return;
+
+    writePersistedAppState(snapshot);
+    lastSavedSnapshotRef.current = nextSerialized;
+  }, [services, orders, reviews, payouts, adminAuthed, hydrated]);
+
+  useEffect(() => {
+    if (!hydrated || typeof window === 'undefined') return undefined;
+
+    const flushState = () => {
+      writePersistedAppState({ services, orders, reviews, payouts, adminAuthed });
+    };
+
+    const handleStorageSync = (event) => {
+      if (event.key !== STORAGE_KEYS.appState || !event.newValue) return;
+      try {
+        const nextState = normalizeState(JSON.parse(event.newValue));
+        setServices(nextState.services);
+        setOrders(nextState.orders);
+        setReviews(nextState.reviews);
+        setPayouts(nextState.payouts);
+        setAdminAuthed(nextState.adminAuthed);
+        lastSavedSnapshotRef.current = JSON.stringify(nextState);
+      } catch {}
+    };
+
+    window.addEventListener('beforeunload', flushState);
+    window.addEventListener('pagehide', flushState);
+    window.addEventListener('storage', handleStorageSync);
+
+    return () => {
+      flushState();
+      window.removeEventListener('beforeunload', flushState);
+      window.removeEventListener('pagehide', flushState);
+      window.removeEventListener('storage', handleStorageSync);
+    };
+  }, [services, orders, reviews, payouts, adminAuthed, hydrated]);
+
+  const selectedService = useMemo(() => {
+    return services.find((service) => service.id === selectedServiceId) || null;
+  }, [services, selectedServiceId]);
+
+  const selectedOrder = useMemo(() => {
+    return orders.find((order) => order.id === selectedOrderId) || null;
+  }, [orders, selectedOrderId]);
+
+  const filteredReviews = useMemo(() => {
+    if (reviewFilter === 'all') return reviews;
+    return reviews.filter((review) => review.rating === reviewFilter);
+  }, [reviewFilter, reviews]);
+
+  const profileReviews = useMemo(() => {
+    if (profileFilter === 'all') return reviews;
+    return reviews.filter((review) => review.rating === profileFilter);
+  }, [profileFilter, reviews]);
+
+  const completedOrdersCount = orders.filter((order) => {
+    return ['DONE_BY_ADMIN', 'CONFIRMED_BY_CLIENT', 'REVIEW_LEFT'].includes(order.status);
+  }).length;
+
+  const averageRating = reviews.length
+    ? (reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length).toFixed(1)
+    : '0.0';
+
+  const turnover = orders
+    .filter((order) =>
+      ['DEMO_PAID', 'PENDING_FULFILLMENT', 'IN_PROGRESS', 'DONE_BY_ADMIN', 'CONFIRMED_BY_CLIENT', 'REVIEW_LEFT'].includes(order.status)
+    )
+    .reduce((sum, order) => sum + order.amount, 0);
+
+  const totalPayouts = payouts.reduce((sum, payout) => sum + payout.amount, 0);
+  const balance = Math.max(turnover - totalPayouts, 0);
+
+  function resetAllData() {
+    if (typeof window !== 'undefined' && canUseStorage()) {
+      Object.values(STORAGE_KEYS).forEach((key) => window.localStorage.removeItem(key));
+    }
+    setServices(SERVICES_SEED);
+    setOrders(INITIAL_ORDERS);
+    setReviews(INITIAL_REVIEWS);
+    setPayouts(INITIAL_PAYOUTS);
+    setAdminAuthed(false);
+    setView('home');
+    setSelectedOrderId(null);
+    setSelectedServiceId(null);
+    lastSavedSnapshotRef.current = '';
+  }
+
+  function goToHome() {
+    setView('home');
+  }
+
+  function openService(serviceId) {
+    setSelectedServiceId(serviceId);
+    setView('service');
+  }
+
+  function openOrder(orderId) {
+    setSelectedOrderId(orderId);
+    setView('order');
+  }
+
+  function startCheckout(payload) {
+    setDraftCheckout(payload);
+    setView('checkout');
+  }
+
+  function createOrderFromCheckout() {
+    if (!draftCheckout) return;
+
+    const service = services.find((item) => item.id === draftCheckout.serviceId);
+    const option = service ? service.options.find((item) => item.id === draftCheckout.optionId) : null;
+    if (!service || !option || option.enabled === false) return;
+
+    const newOrder = {
+      id: randomId('ord'),
+      serviceId: service.id,
+      serviceTitle: service.title,
+      optionLabel: option.label,
+      customerName: draftCheckout.customerName || 'Гость',
+      amount: option.price,
+      note: draftCheckout.note || '',
+      status: 'PENDING_FULFILLMENT',
+      createdAt: new Date().toISOString()
+    };
+
+    setOrders((current) => [newOrder, ...current]);
+    setSelectedOrderId(newOrder.id);
+    setDraftCheckout(null);
+    setView('order');
+  }
+
+  function confirmCompletion(orderId) {
+    setOrders((current) =>
+      current.map((order) => {
+        if (order.id !== orderId) return order;
+        return { ...order, status: 'CONFIRMED_BY_CLIENT' };
+      })
+    );
+  }
+
+  function addReview(orderId, rating, text) {
+    const order = orders.find((item) => item.id === orderId);
+    if (!order) return;
+    if (!text || !text.trim()) return;
+    if (reviews.some((item) => item.orderId === orderId)) return;
+
+    const newReview = {
+      id: randomId('rev'),
+      orderId,
+      customerName: order.customerName,
+      rating,
+      text: text.trim(),
+      adminReply: '',
+      createdAt: new Date().toISOString(),
+      serviceTitle: order.serviceTitle,
+      optionLabel: order.optionLabel,
+      amount: order.amount,
+      purchasedAt: order.createdAt
+    };
+
+    setReviews((current) => [newReview, ...current]);
+    setOrders((current) =>
+      current.map((orderItem) => {
+        if (orderItem.id !== orderId) return orderItem;
+        return { ...orderItem, status: 'REVIEW_LEFT' };
+      })
+    );
+  }
+
+  function loginAdmin() {
+    if (adminPasswordInput === ADMIN_PASSWORD) {
+      setAdminAuthed(true);
+      setAdminPasswordInput('');
+      setView('admin');
+    }
+  }
+
+  function logoutAdmin() {
+    setAdminAuthed(false);
+    setView('home');
+  }
+
+  function updateOrderStatus(orderId, status) {
+    setOrders((current) =>
+      current.map((order) => {
+        if (order.id !== orderId) return order;
+        return { ...order, status };
+      })
+    );
+  }
+
+  function updateServiceBasePrice(serviceId, value) {
+    setServices((current) =>
+      current.map((service) => {
+        if (service.id !== serviceId) return service;
+        return { ...service, basePrice: value };
+      })
+    );
+  }
+
+  function updateOptionPrice(serviceId, optionId, value) {
+    setServices((current) =>
+      current.map((service) => {
+        if (service.id !== serviceId) return service;
+        return {
+          ...service,
+          options: service.options.map((option) => {
+            if (option.id !== optionId) return option;
+            return { ...option, price: value };
+          })
+        };
+      })
+    );
+  }
+
+  function toggleOption(serviceId, optionId) {
+    setServices((current) =>
+      current.map((service) => {
+        if (service.id !== serviceId) return service;
+        return {
+          ...service,
+          options: service.options.map((option) => {
+            if (option.id !== optionId) return option;
+            return { ...option, enabled: option.enabled === false ? true : false };
+          })
+        };
+      })
+    );
+  }
+
+  function replyToReview(reviewId, reply) {
+    setReviews((current) =>
+      current.map((review) => {
+        if (review.id !== reviewId) return review;
+        return { ...review, adminReply: reply };
+      })
+    );
+  }
+
+  function deleteReview(reviewId) {
+    const review = reviews.find((item) => item.id === reviewId);
+    setReviews((current) => current.filter((item) => item.id !== reviewId));
+    if (review) {
+      setOrders((current) =>
+        current.map((order) => {
+          if (order.id !== review.orderId) return order;
+          return { ...order, status: 'CONFIRMED_BY_CLIENT' };
+        })
+      );
+    }
+  }
+
+  function createPayout(amount, cardNumber) {
+    if (!Number.isFinite(amount) || amount <= 0 || !cardNumber.trim()) return;
+    const newPayout = {
+      id: randomId('pay'),
+      amount,
+      cardNumber,
+      createdAt: new Date().toISOString()
+    };
+    setPayouts((current) => [newPayout, ...current]);
+  }
+
+  function renderNavButton(label, targetView) {
+    return (
+      <button
+        key={label}
+        onClick={() => setView(targetView)}
+        style={{
+          background: 'transparent',
+          border: 'none',
+          cursor: 'pointer',
+          color: '#2e2f33',
+          fontSize: 14,
+          fontWeight: 600
+        }}
+      >
+        {label}
+      </button>
+    );
+  }
+
+  function HomeView() {
+    return (
+      <div>
+        <section style={{ padding: '34px 0 16px' }}>
+          <div className="grid-two" style={{ display: 'grid', gap: 24, gridTemplateColumns: '1.4fr 0.9fr' }}>
+            <div
+              style={{
+                ...cardStyle(),
+                padding: 34,
+                background:
+                  'radial-gradient(circle at top right, rgba(185,146,82,0.14), transparent 30%), linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,244,236,0.96))'
+              }}
+            >
+              <span style={badgeStyle()}>Работает с 2026 года</span>
+              <h1 style={{ fontSize: 54, lineHeight: 1.02, margin: '18px 0 0', fontWeight: 900, letterSpacing: '-0.03em' }}>
+                Agafonov Coach Chess
+              </h1>
+              <p style={{ color: '#b99252', fontWeight: 800, fontSize: 20, marginTop: 12 }}>
+                Тренер по Шахматам
+              </p>
+              <p style={{ maxWidth: 720, color: 'rgba(46,47,51,0.75)', lineHeight: 1.8, marginTop: 18, fontSize: 15 }}>
+                Красивый шахматный магазин услуг: поднятие рейтинга, обучение, турниры,
+                разбор партий и онлайн-сессии с удобным оформлением заказа.
+              </p>
+
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 24 }}>
+                <button onClick={() => setView('services')} style={buttonStyle(true)}>
+                  Выбрать услугу
+                </button>
+                <button onClick={() => setView('about')} style={buttonStyle(false)}>
+                  Обо мне
+                </button>
+              </div>
+
+              <div className="grid-three" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginTop: 24 }}>
+                {[
+                  ['13k+', 'партий за всё время'],
+                  ['904', 'сыгранных турнира'],
+                  ['130+', 'завершённых курсов']
+                ].map((item) => (
+                  <div key={item[1]} style={{ ...subtleBoxStyle(), background: 'rgba(235,228,214,0.62)' }}>
+                    <div style={{ fontSize: 28, fontWeight: 900 }}>{item[0]}</div>
+                    <div style={{ fontSize: 13, color: 'rgba(46,47,51,0.62)', marginTop: 6 }}>{item[1]}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ ...cardStyle(), padding: 28, background: '#2e2f33', color: '#fff' }}>
+              <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 3, color: 'rgba(255,255,255,0.56)' }}>
+                Профиль продавца
+              </div>
+
+              <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginTop: 18 }}>
+                <div
+                  style={{
+                    width: 72,
+                    height: 72,
+                    borderRadius: 24,
+                    background: 'rgba(255,255,255,0.12)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 30,
+                    fontWeight: 900
+                  }}
+                >
+                  A
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <div style={{ fontSize: 24, fontWeight: 900 }}>Agafonov Chess</div>
+                    <span style={{ ...badgeStyle(), background: '#b99252', color: '#fff', borderColor: 'transparent' }}>✓</span>
+                  </div>
+                  <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.72)', marginTop: 4 }}>Администратор</div>
+                </div>
+              </div>
+
+              <p style={{ lineHeight: 1.75, fontSize: 14, marginTop: 22, color: 'rgba(255,255,255,0.82)' }}>
+                Шахматист-самоучка, лига Легенда 2024–2025, опыт в рейтинговых матчах,
+                турнирах и тактическом обучении.
+              </p>
+
+              <div className="grid-two" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 24 }}>
+                <div style={{ background: 'rgba(255,255,255,0.1)', borderRadius: 18, padding: 16 }}>
+                  <div style={{ fontSize: 24, fontWeight: 900 }}>{averageRating}</div>
+                  <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.68)' }}>средняя оценка</div>
+                </div>
+                <div style={{ background: 'rgba(255,255,255,0.1)', borderRadius: 18, padding: 16 }}>
+                  <div style={{ fontSize: 24, fontWeight: 900 }}>{reviews.length}</div>
+                  <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.68)' }}>отзывов</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section style={{ padding: '18px 0 8px' }}>
+          <h2 style={sectionTitleStyle()}>Почему выбирают меня</h2>
+          <p style={{ color: 'rgba(46,47,51,0.7)', marginBottom: 20, marginTop: 10 }}>
+            Индивидуальный подход, понятный процесс заказа и аккуратная премиальная подача.
+          </p>
+          <div className="grid-four" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+            {[
+              ['Быстрые заказы', 'Простой путь от выбора услуги до страницы заказа и отзыва.'],
+              ['Удобный выбор', 'Карточки услуг, варианты, цены и подробные описания.'],
+              ['Индивидуальный подход', 'Подбор подхода под рейтинг, цель и игровой стиль.'],
+              ['Обучение и практика', 'От тактики и разбора партий до турниров и игровых сессий.']
+            ].map((item) => (
+              <div key={item[0]} style={{ ...cardStyle(), padding: 22 }}>
+                <div style={{ fontWeight: 900 }}>{item[0]}</div>
+                <div style={{ color: 'rgba(46,47,51,0.7)', fontSize: 14, lineHeight: 1.7, marginTop: 10 }}>{item[1]}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section style={{ padding: '28px 0 8px' }}>
+          <div style={{ marginBottom: 18 }}>
+            <h2 style={sectionTitleStyle()}>Популярные услуги</h2>
+            <p style={{ color: 'rgba(46,47,51,0.7)', marginTop: 10 }}>Ключевые направления с быстрым доступом к заказу.</p>
+          </div>
+          <div className="grid-three" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 18 }}>
+            {services.slice(0, 3).map((service) => (
+              <ServiceCard key={service.id} service={service} onOpen={openService} />
+            ))}
+          </div>
+        </section>
+
+        <section style={{ padding: '28px 0 8px' }}>
+          <h2 style={sectionTitleStyle()}>Последние отзывы</h2>
+          <p style={{ color: 'rgba(46,47,51,0.7)', marginBottom: 18, marginTop: 10 }}>
+            Отзывы клиентов с указанием услуги, варианта и суммы заказа.
+          </p>
+          <div className="grid-three" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 18 }}>
+            {reviews.slice(0, 3).map((review) => (
+              <ReviewCard key={review.id} review={review} />
+            ))}
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  function ServicesView() {
+    return (
+      <div>
+        <h1 style={{ ...sectionTitleStyle(), fontSize: 34 }}>Услуги</h1>
+        <p style={{ color: 'rgba(46,47,51,0.7)', marginBottom: 18, marginTop: 10 }}>
+          Выберите направление, вариант и оформите заказ в пару кликов.
+        </p>
+        <div className="grid-three" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 18 }}>
+          {services.map((service) => (
+            <ServiceCard key={service.id} service={service} onOpen={openService} />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  function ServiceView() {
+    const service = selectedService;
+    const defaultOption = service ? service.options.find((item) => item.enabled !== false) : null;
+    const [customerName, setCustomerName] = useState('');
+    const [optionId, setOptionId] = useState(defaultOption ? defaultOption.id : '');
+    const [note, setNote] = useState('');
+
+    if (!service) {
+      return <EmptyState text="Услуга не найдена." />;
+    }
+
+    const activeOptions = service.options.filter((item) => item.enabled !== false);
+
+    return (
+      <div className="grid-two" style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 24 }}>
+        <div style={{ ...cardStyle(), padding: 28 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'start' }}>
+            <div>
+              <h1 style={{ ...sectionTitleStyle(), fontSize: 34 }}>{service.title}</h1>
+              <p style={{ marginTop: 12, color: 'rgba(46,47,51,0.72)', lineHeight: 1.8 }}>{service.description}</p>
+            </div>
+            {service.badge ? <span style={badgeStyle()}>{service.badge}</span> : null}
+          </div>
+
+          <div style={{ ...subtleBoxStyle(), marginTop: 24 }}>
+            <div style={{ fontWeight: 900 }}>Доступные варианты</div>
+            <div style={{ marginTop: 12, display: 'grid', gap: 10 }}>
+              {service.options.map((option) => (
+                <div key={option.id} style={{ background: '#fff', borderRadius: 18, padding: 14, display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                  <div style={{ fontWeight: 600 }}>{option.label}</div>
+                  <div style={{ fontWeight: 800 }}>
+                    {option.enabled === false ? 'Недоступно' : formatPrice(option.price)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ ...cardStyle(), padding: 28 }}>
+          <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 3, color: '#b99252', fontWeight: 800 }}>
+            Оформление заказа
+          </div>
+          <p style={{ marginTop: 14, color: 'rgba(46,47,51,0.72)', lineHeight: 1.75 }}>
+            Выберите вариант, заполните имя и перейдите к подтверждению заказа. Онлайн-оплата в этой версии не подключена, заказ создаётся сразу после подтверждения.
+          </p>
+
+          <div style={{ marginTop: 16, display: 'grid', gap: 14 }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: 8, fontSize: 14, fontWeight: 700 }}>Ваше имя</label>
+              <input value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Например, KnightRush" style={inputStyle()} />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', marginBottom: 8, fontSize: 14, fontWeight: 700 }}>Выберите вариант</label>
+              <select value={optionId} onChange={(e) => setOptionId(e.target.value)} style={inputStyle()}>
+                {activeOptions.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label} — {formatPrice(option.price)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', marginBottom: 8, fontSize: 14, fontWeight: 700 }}>Комментарий к заказу</label>
+              <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={4} placeholder="Дополнительные пожелания" style={inputStyle()} />
+            </div>
+
+            <button
+              onClick={() =>
+                startCheckout({
+                  serviceId: service.id,
+                  optionId,
+                  customerName: customerName || 'Гость',
+                  note
+                })
+              }
+              style={{ ...buttonStyle(true), width: '100%' }}
+            >
+              Перейти к подтверждению
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  function CheckoutView() {
+    if (!draftCheckout) return <EmptyState text="Нет данных для оформления заказа." />;
+
+    const service = services.find((item) => item.id === draftCheckout.serviceId);
+    const option = service ? service.options.find((item) => item.id === draftCheckout.optionId) : null;
+    if (!service || !option) return <EmptyState text="Услуга или вариант не найдены." />;
+
+    return (
+      <div style={{ maxWidth: 900, margin: '0 auto' }}>
+        <div style={{ ...cardStyle(), padding: 28 }}>
+          <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 3, color: '#b99252', fontWeight: 800 }}>
+            Подтверждение заказа
+          </div>
+          <h1 style={{ ...sectionTitleStyle(), fontSize: 34, marginTop: 12 }}>Проверьте данные</h1>
+          <p style={{ color: 'rgba(46,47,51,0.72)', lineHeight: 1.8, marginTop: 10 }}>
+            После подтверждения заказ появится в вашем списке и в панели администратора.
+          </p>
+
+          <div className="grid-two" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginTop: 22 }}>
+            <InfoBox label="Услуга" value={service.title} />
+            <InfoBox label="Вариант" value={option.label} />
+            <InfoBox label="Клиент" value={draftCheckout.customerName} />
+            <InfoBox label="Сумма" value={formatPrice(option.price)} />
+          </div>
+
+          {draftCheckout.note ? <InfoBox label="Комментарий" value={draftCheckout.note} style={{ marginTop: 14 }} /> : null}
+
+          <button onClick={createOrderFromCheckout} style={{ ...buttonStyle(true), width: '100%', marginTop: 22 }}>
+            Создать заказ
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  function OrdersView() {
+    return (
+      <div>
+        <h1 style={{ ...sectionTitleStyle(), fontSize: 34 }}>Мои заказы</h1>
+        <p style={{ color: 'rgba(46,47,51,0.7)', marginBottom: 18, marginTop: 10 }}>
+          История ваших заказов и текущие статусы выполнения.
+        </p>
+
+        <div style={{ display: 'grid', gap: 12 }}>
+          {!orders.length ? (
+            <EmptyState text="Заказов пока нет." />
+          ) : (
+            orders.map((order) => (
+              <button
+                key={order.id}
+                onClick={() => openOrder(order.id)}
+                style={{ ...cardStyle(), padding: 18, textAlign: 'left', cursor: 'pointer', border: 'none' }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <div>
+                    <div style={{ fontWeight: 900 }}>{order.serviceTitle}</div>
+                    <div style={{ color: 'rgba(46,47,51,0.62)', fontSize: 14, marginTop: 6 }}>
+                      {order.optionLabel} · {order.customerName}
+                    </div>
+                    <div style={{ color: 'rgba(46,47,51,0.52)', fontSize: 13, marginTop: 4 }}>
+                      {formatDateTime(order.createdAt)}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                    <span style={badgeStyle()}>{statusLabel(order.status)}</span>
+                    <strong>{formatPrice(order.amount)}</strong>
+                  </div>
+                </div>
+              </button>
+            ))
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  function OrderView() {
+    const order = selectedOrder;
+    const [rating, setRating] = useState(5);
+    const [text, setText] = useState('');
+
+    if (!order) return <EmptyState text="Заказ не найден." />;
+
+    const review = reviews.find((item) => item.orderId === order.id);
+
+    return (
+      <div className="grid-two" style={{ display: 'grid', gridTemplateColumns: '1fr 0.9fr', gap: 24 }}>
+        <div style={{ ...cardStyle(), padding: 28 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+            <div>
+              <h1 style={{ ...sectionTitleStyle(), fontSize: 34 }}>Заказ #{order.id.slice(-6)}</h1>
+              <div style={{ color: 'rgba(46,47,51,0.62)', fontSize: 14, marginTop: 8 }}>Создан {formatDateTime(order.createdAt)}</div>
+            </div>
+            <span style={badgeStyle()}>{statusLabel(order.status)}</span>
+          </div>
+
+          <div className="grid-two" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginTop: 22 }}>
+            <InfoBox label="Услуга" value={order.serviceTitle} />
+            <InfoBox label="Вариант" value={order.optionLabel} />
+            <InfoBox label="Клиент" value={order.customerName} />
+            <InfoBox label="Сумма" value={formatPrice(order.amount)} />
+          </div>
+
+          {order.note ? <InfoBox label="Комментарий" value={order.note} style={{ marginTop: 14 }} /> : null}
+        </div>
+
+        <div style={{ display: 'grid', gap: 16 }}>
+          <div style={{ ...cardStyle(), padding: 24 }}>
+            <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 3, color: '#b99252', fontWeight: 800 }}>
+              Таймлайн заказа
+            </div>
+            <div style={{ marginTop: 16, display: 'grid', gap: 10 }}>
+              {orderTimeline(order.status).map((item) => (
+                <div key={item.key} style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                  <div style={{ width: 10, height: 10, borderRadius: 999, background: item.done ? '#b99252' : 'rgba(0,0,0,0.12)' }} />
+                  <div style={{ color: item.done ? '#2e2f33' : 'rgba(46,47,51,0.45)', fontSize: 14 }}>{statusLabel(item.key)}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {order.status === 'DONE_BY_ADMIN' ? (
+            <div style={{ ...cardStyle(), padding: 24 }}>
+              <button onClick={() => confirmCompletion(order.id)} style={{ ...buttonStyle(true), width: '100%', background: '#31463b' }}>
+                Подтвердить выполнение
+              </button>
+            </div>
+          ) : null}
+
+          {order.status === 'CONFIRMED_BY_CLIENT' && !review ? (
+            <div style={{ ...cardStyle(), padding: 24 }}>
+              <div style={{ fontWeight: 900 }}>Оставить отзыв</div>
+              <div style={{ marginTop: 14, display: 'grid', gap: 12 }}>
+                <select value={rating} onChange={(e) => setRating(Number(e.target.value))} style={inputStyle()}>
+                  {[5, 4, 3, 2, 1].map((item) => (
+                    <option key={item} value={item}>
+                      {item} звёзд
+                    </option>
+                  ))}
+                </select>
+                <textarea value={text} onChange={(e) => setText(e.target.value)} rows={4} placeholder="Ваш отзыв" style={inputStyle()} />
+                <button onClick={() => addReview(order.id, rating, text)} style={{ ...buttonStyle(true), width: '100%' }}>
+                  Опубликовать отзыв
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {review ? (
+            <div style={{ ...cardStyle(), padding: 24 }}>
+              <div style={{ fontWeight: 900 }}>Ваш отзыв опубликован</div>
+              <div style={{ marginTop: 10, color: 'rgba(46,47,51,0.72)', fontSize: 14, lineHeight: 1.7 }}>
+                {review.rating} ★ · {review.text}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
+  function ReviewsView() {
+    return (
+      <div>
+        <h1 style={{ ...sectionTitleStyle(), fontSize: 34 }}>Отзывы</h1>
+        <p style={{ color: 'rgba(46,47,51,0.7)', marginBottom: 16, marginTop: 10 }}>
+          Фильтрация по оценке и ответы администратора.
+        </p>
+
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 18 }}>
+          {['all', 5, 4, 3, 2, 1].map((item) => (
+            <button
+              key={String(item)}
+              onClick={() => setReviewFilter(item)}
+              style={{
+                ...buttonStyle(reviewFilter === item),
+                padding: '10px 14px',
+                background: reviewFilter === item ? '#2e2f33' : '#fff',
+                color: reviewFilter === item ? '#fff' : '#2e2f33'
+              }}
+            >
+              {item === 'all' ? 'Все' : `${item} ★`}
+            </button>
+          ))}
+        </div>
+
+        <div className="grid-three" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 18 }}>
+          {filteredReviews.map((review) => <ReviewCard key={review.id} review={review} />)}
+        </div>
+      </div>
+    );
+  }
+
+  function ProfileView() {
+    return (
+      <div>
+        <h1 style={{ ...sectionTitleStyle(), fontSize: 34 }}>Профиль</h1>
+        <p style={{ color: 'rgba(46,47,51,0.7)', marginBottom: 18, marginTop: 10 }}>
+          Agafonov Chess — подтверждённый профиль администратора.
+        </p>
+
+        <div className="grid-two" style={{ display: 'grid', gridTemplateColumns: '0.9fr 1.1fr', gap: 24 }}>
+          <div style={{ ...cardStyle(), padding: 26, background: '#2e2f33', color: '#fff' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div style={{ width: 84, height: 84, borderRadius: 26, background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, fontWeight: 900 }}>
+                A
+              </div>
+              <div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <div style={{ fontSize: 28, fontWeight: 900 }}>Agafonov Chess</div>
+                  <span style={{ ...badgeStyle(), background: '#b99252', color: '#fff', borderColor: 'transparent' }}>✓</span>
+                </div>
+                <div style={{ color: 'rgba(255,255,255,0.72)', marginTop: 4 }}>Администратор</div>
+              </div>
+            </div>
+
+            <p style={{ marginTop: 20, color: 'rgba(255,255,255,0.82)', lineHeight: 1.8, fontSize: 14 }}>
+              Шахматист-самоучка, играю 3 года, лига Легенда в 2024–2025, более 13k партий и 904 турниров.
+            </p>
+
+            <div className="grid-three" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginTop: 18 }}>
+              <div style={{ background: 'rgba(255,255,255,0.1)', borderRadius: 18, padding: 14 }}>
+                <div style={{ fontSize: 24, fontWeight: 900 }}>{reviews.length}</div>
+                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>отзывов</div>
+              </div>
+              <div style={{ background: 'rgba(255,255,255,0.1)', borderRadius: 18, padding: 14 }}>
+                <div style={{ fontSize: 24, fontWeight: 900 }}>{averageRating}</div>
+                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>рейтинг</div>
+              </div>
+              <div style={{ background: 'rgba(255,255,255,0.1)', borderRadius: 18, padding: 14 }}>
+                <div style={{ fontSize: 24, fontWeight: 900 }}>{completedOrdersCount}</div>
+                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>выполнено</div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
+              {['all', 5, 4, 3, 2, 1].map((item) => (
+                <button
+                  key={String(item)}
+                  onClick={() => setProfileFilter(item)}
+                  style={{
+                    ...buttonStyle(profileFilter === item),
+                    padding: '10px 14px',
+                    background: profileFilter === item ? '#2e2f33' : '#fff',
+                    color: profileFilter === item ? '#fff' : '#2e2f33'
+                  }}
+                >
+                  {item === 'all' ? 'Все отзывы' : `${item} ★`}
+                </button>
+              ))}
+            </div>
+            <div style={{ display: 'grid', gap: 12 }}>
+              {profileReviews.map((review) => <ReviewCard key={review.id} review={review} />)}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  function AboutView() {
+    return (
+      <div>
+        <h1 style={{ ...sectionTitleStyle(), fontSize: 34 }}>Обо мне</h1>
+        <p style={{ color: 'rgba(46,47,51,0.7)', marginBottom: 18, marginTop: 10 }}>
+          История, достижения, опыт и преимущества работы.
+        </p>
+
+        <div className="grid-two" style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: 24 }}>
+          <div style={{ ...cardStyle(), padding: 26 }}>
+            <span style={badgeStyle()}>Agafonov Chess</span>
+            <p style={{ marginTop: 18, lineHeight: 1.9, color: 'rgba(46,47,51,0.82)' }}>
+              Agafonov Chess — шахматист-самоучка, играю на протяжении 3-х лет. Имел Лигу Легенда (2024–2025). Сыграл свыше 13k+ партий за всё время. Сыграл 904 турнира за всё время. Прошёл теоретические курсы chess.com. Завершил свыше 130 курсов старшей игры. Спеши получить помощь от профи.
+            </p>
+          </div>
+
+          <div style={{ ...cardStyle(), padding: 26, background: '#2e2f33', color: '#fff' }}>
+            <h3 style={{ fontSize: 24, marginTop: 0, marginBottom: 12 }}>Преимущества</h3>
+            <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 2, color: 'rgba(255,255,255,0.82)' }}>
+              <li>Индивидуальный подбор услуг под рейтинг и цель.</li>
+              <li>Онлайн-обучение на 1–3 часа с понятной структурой.</li>
+              <li>Отдельные тактические модули и полноценная программа.</li>
+              <li>Красивый интерфейс, понятная логика и быстрый заказ.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  function AdminLoginView() {
+    return (
+      <div style={{ maxWidth: 480, margin: '40px auto 0' }}>
+        <div style={{ ...cardStyle(), padding: 28 }}>
+          <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 3, color: '#b99252', fontWeight: 800 }}>
+            Вход администратора
+          </div>
+          <h1 style={{ ...sectionTitleStyle(), fontSize: 34, marginTop: 12 }}>Agafonov Admin</h1>
+          <div style={{ marginTop: 18, display: 'grid', gap: 14 }}>
+            <input type="password" value={adminPasswordInput} onChange={(e) => setAdminPasswordInput(e.target.value)} placeholder="Пароль" style={inputStyle()} />
+            <button onClick={loginAdmin} style={{ ...buttonStyle(true), width: '100%' }}>
+              Войти
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  function AdminView() {
+    const [payoutAmount, setPayoutAmount] = useState('');
+    const [cardNumber, setCardNumber] = useState('');
+
+    if (!adminAuthed) return <EmptyState text="Сначала войдите как администратор." />;
+
+    return (
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div>
+            <h1 style={{ ...sectionTitleStyle(), fontSize: 34 }}>Админ-панель</h1>
+            <p style={{ color: 'rgba(46,47,51,0.7)', marginTop: 10 }}>
+              Управление услугами, заказами, отзывами и балансом.
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button onClick={logoutAdmin} style={buttonStyle(false)}>Выйти</button>
+            <button onClick={resetAllData} style={{ ...buttonStyle(true), background: '#6b3b42' }}>
+              Сбросить все данные
+            </button>
+          </div>
+        </div>
+
+        <div className="grid-five" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginTop: 16 }}>
+          <StatCard label="Услуги" value={String(services.length)} />
+          <StatCard label="Заказы" value={String(orders.length)} />
+          <StatCard label="Отзывы" value={String(reviews.length)} />
+          <StatCard label="Оборот" value={formatPrice(turnover)} />
+          <StatCard label="Заявки на вывод" value={String(payouts.length)} />
+        </div>
+
+        <div className="grid-two" style={{ display: 'grid', gridTemplateColumns: '1.15fr 1fr', gap: 24, marginTop: 24 }}>
+          <div style={{ display: 'grid', gap: 18 }}>
+            <div style={{ ...cardStyle(), padding: 22 }}>
+              <h2 style={{ fontSize: 24, marginTop: 0, marginBottom: 6 }}>Товары и цены</h2>
+              <div style={{ display: 'grid', gap: 14 }}>
+                {services.map((service) => (
+                  <div key={service.id} style={{ borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: 14 }}>
+                    <div style={{ display: 'grid', gap: 10 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                        <strong>{service.title}</strong>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14 }}>
+                          Базовая цена
+                          <input
+                            type="number"
+                            value={service.basePrice}
+                            onChange={(e) => updateServiceBasePrice(service.id, Number(e.target.value) || 0)}
+                            style={{ ...inputStyle(), width: 120, padding: '8px 10px' }}
+                          />
+                        </label>
+                      </div>
+
+                      <div style={{ display: 'grid', gap: 10 }}>
+                        {service.options.map((option) => (
+                          <div key={option.id} className="admin-options" style={{ display: 'grid', gridTemplateColumns: '1fr 120px 120px', gap: 10, alignItems: 'center' }}>
+                            <div style={{ fontSize: 14 }}>{option.label}</div>
+                            <input
+                              type="number"
+                              value={option.price}
+                              onChange={(e) => updateOptionPrice(service.id, option.id, Number(e.target.value) || 0)}
+                              style={{ ...inputStyle(), padding: '8px 10px' }}
+                            />
+                            <button onClick={() => toggleOption(service.id, option.id)} style={buttonStyle(option.enabled !== false)}>
+                              {option.enabled === false ? 'Включить' : 'Выключить'}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ ...cardStyle(), padding: 22 }}>
+              <h2 style={{ fontSize: 24, marginTop: 0, marginBottom: 6 }}>Заказы</h2>
+              <div style={{ display: 'grid', gap: 12 }}>
+                {orders.map((order) => (
+                  <div key={order.id} style={{ borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <div>
+                        <div style={{ fontWeight: 800 }}>{order.serviceTitle}</div>
+                        <div style={{ fontSize: 14, color: 'rgba(46,47,51,0.64)', marginTop: 4 }}>
+                          {order.optionLabel} · {order.customerName}
+                        </div>
+                        <div style={{ fontSize: 13, color: 'rgba(46,47,51,0.54)', marginTop: 4 }}>
+                          {formatPrice(order.amount)}
+                        </div>
+                      </div>
+
+                      <select value={order.status} onChange={(e) => updateOrderStatus(order.id, e.target.value)} style={{ ...inputStyle(), width: 240, padding: '10px 12px' }}>
+                        <option value="DEMO_PAID">Оплачено</option>
+                        <option value="PENDING_FULFILLMENT">Ожидает выполнения</option>
+                        <option value="IN_PROGRESS">Выполняется</option>
+                        <option value="DONE_BY_ADMIN">Выполнено администратором</option>
+                        <option value="CONFIRMED_BY_CLIENT">Подтверждено клиентом</option>
+                        <option value="REVIEW_LEFT">Отзыв оставлен</option>
+                      </select>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gap: 18 }}>
+            <div style={{ ...cardStyle(), padding: 22 }}>
+              <h2 style={{ fontSize: 24, marginTop: 0, marginBottom: 6 }}>Отзывы</h2>
+              <div style={{ display: 'grid', gap: 12 }}>
+                {reviews.map((review) => (
+                  <AdminReviewItem key={review.id} review={review} onReply={replyToReview} onDelete={deleteReview} />
+                ))}
+              </div>
+            </div>
+
+            <div style={{ ...cardStyle(), padding: 22 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                <h2 style={{ fontSize: 24, margin: 0 }}>Баланс и выплаты</h2>
+                <span style={badgeStyle()}>Финансы</span>
+              </div>
+
+              <div className="grid-three" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginTop: 16 }}>
+                <StatTile label="Оборот" value={formatPrice(turnover)} />
+                <StatTile label="Выведено" value={formatPrice(totalPayouts)} />
+                <StatTile label="Баланс" value={formatPrice(balance)} />
+              </div>
+
+              <div style={{ display: 'grid', gap: 10, marginTop: 16 }}>
+                <input value={cardNumber} onChange={(e) => setCardNumber(e.target.value)} placeholder="Номер карты" style={inputStyle()} />
+                <input value={payoutAmount} onChange={(e) => setPayoutAmount(e.target.value)} placeholder="Сумма" type="number" style={inputStyle()} />
+                <button
+                  onClick={() => {
+                    createPayout(Number(payoutAmount), cardNumber);
+                    setPayoutAmount('');
+                    setCardNumber('');
+                  }}
+                  style={buttonStyle(true)}
+                >
+                  Создать заявку на вывод
+                </button>
+              </div>
+
+              <div style={{ marginTop: 16, display: 'grid', gap: 10 }}>
+                {payouts.map((payout) => (
+                  <div key={payout.id} style={{ ...subtleBoxStyle() }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
+                      <strong>{formatPrice(payout.amount)}</strong>
+                      <span style={badgeStyle()}>Создано</span>
+                    </div>
+                    <div style={{ fontSize: 14, color: 'rgba(46,47,51,0.62)', marginTop: 6 }}>{payout.cardNumber}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!hydrated) {
+    return (
+      <div
+        style={{
+          minHeight: '100vh',
+          display: 'grid',
+          placeItems: 'center',
+          backgroundColor: '#f6f1e7',
+          color: '#2e2f33'
+        }}
+      >
+        <div style={{ ...cardStyle(), padding: 28, minWidth: 280, textAlign: 'center' }}>
+          Загрузка магазина...
+        </div>
+      </div>
+    );
+  }
+
+  let content = null;
+  if (view === 'home') content = <HomeView />;
+  if (view === 'services') content = <ServicesView />;
+  if (view === 'service') content = <ServiceView />;
+  if (view === 'checkout') content = <CheckoutView />;
+  if (view === 'orders') content = <OrdersView />;
+  if (view === 'order') content = <OrderView />;
+  if (view === 'reviews') content = <ReviewsView />;
+  if (view === 'profile') content = <ProfileView />;
+  if (view === 'about') content = <AboutView />;
+  if (view === 'admin-login') content = <AdminLoginView />;
+  if (view === 'admin') content = <AdminView />;
+  if (!content) content = <HomeView />;
+
+  return (
+    <div
+      style={{
+        minHeight: '100vh',
+        backgroundColor: '#f6f1e7',
+        backgroundImage:
+          'radial-gradient(circle at top right, rgba(185,146,82,0.15), transparent 28%), radial-gradient(circle at bottom left, rgba(49,70,59,0.12), transparent 30%), linear-gradient(135deg, rgba(255,255,255,0.35) 25%, transparent 25%), linear-gradient(225deg, rgba(255,255,255,0.18) 25%, transparent 25%)',
+        backgroundSize: 'auto, auto, 40px 40px, 40px 40px',
+        color: '#2e2f33'
+      }}
+    >
+      <style>{`
+        * { box-sizing: border-box; }
+        html, body, #root { margin: 0; min-height: 100%; }
+        body {
+          font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+        @media (max-width: 1180px) {
+          .grid-two, .grid-three, .grid-four, .grid-five, .admin-options {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}</style>
+
+      <header
+        style={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 20,
+          backdropFilter: 'blur(12px)',
+          background: 'rgba(247,243,235,0.82)',
+          borderBottom: '1px solid rgba(0,0,0,0.06)'
+        }}
+      >
+        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 20px', height: 70, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+          <button onClick={goToHome} style={{ background: 'transparent', border: 'none', fontSize: 20, fontWeight: 900, cursor: 'pointer', color: '#2e2f33' }}>
+            Agafonov Coach Chess
+          </button>
+
+          <nav style={{ display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'center' }}>
+            {renderNavButton('Услуги', 'services')}
+            {renderNavButton('Обо мне', 'about')}
+            {renderNavButton('Отзывы', 'reviews')}
+            {renderNavButton('Профиль', 'profile')}
+            {renderNavButton('Мои заказы', 'orders')}
+            <button onClick={() => setView(adminAuthed ? 'admin' : 'admin-login')} style={{ ...buttonStyle(true), background: '#b99252', padding: '10px 14px' }}>
+              Админ
+            </button>
+          </nav>
+        </div>
+      </header>
+
+      <main style={{ maxWidth: 1280, margin: '0 auto', padding: '24px 20px 60px' }}>
+        {content}
+      </main>
+
+      <footer style={{ borderTop: '1px solid rgba(0,0,0,0.06)', padding: '22px 20px 32px' }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto', display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', color: 'rgba(46,47,51,0.66)', fontSize: 14 }}>
+          <div>© 2026 Agafonov Coach Chess</div>
+          <div>Шахматные услуги, обучение, разбор партий, турниры и практические сессии.</div>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+    </script>
+  </body>
+</html>
